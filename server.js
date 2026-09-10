@@ -10,42 +10,69 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/tasks", (req, res) => {
-  const rows = db.prepare("SELECT id, text, done FROM tasks ORDER BY created_at ASC").all();
-  res.json(rows.map((r) => ({ ...r, done: Boolean(r.done) })));
+function parseTags(tags) {
+  return String(tags ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .join(",");
+}
+
+app.get("/api/notes", (req, res) => {
+  const search = String(req.query.search ?? "").trim().toLowerCase();
+  const rows = db.prepare("SELECT * FROM notes ORDER BY updated_at DESC").all();
+  const filtered = search
+    ? rows.filter(
+        (n) =>
+          n.title.toLowerCase().includes(search) ||
+          n.body.toLowerCase().includes(search) ||
+          n.tags.toLowerCase().includes(search)
+      )
+    : rows;
+  res.json(filtered);
 });
 
-app.post("/api/tasks", (req, res) => {
-  const text = String(req.body?.text ?? "").trim();
-  if (!text) return res.status(400).json({ error: "text is required" });
-
-  const result = db.prepare("INSERT INTO tasks (text) VALUES (?)").run(text);
-  const task = db.prepare("SELECT id, text, done FROM tasks WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json({ ...task, done: Boolean(task.done) });
+app.get("/api/notes/:id", (req, res) => {
+  const note = db.prepare("SELECT * FROM notes WHERE id = ?").get(req.params.id);
+  if (!note) return res.status(404).json({ error: "note not found" });
+  res.json(note);
 });
 
-app.patch("/api/tasks/:id", (req, res) => {
+app.post("/api/notes", (req, res) => {
+  const title = String(req.body?.title ?? "").trim();
+  const body = String(req.body?.body ?? "");
+  const tags = parseTags(req.body?.tags);
+  if (!title) return res.status(400).json({ error: "title is required" });
+
+  const result = db
+    .prepare("INSERT INTO notes (title, body, tags) VALUES (?, ?, ?)")
+    .run(title, body, tags);
+  const note = db.prepare("SELECT * FROM notes WHERE id = ?").get(result.lastInsertRowid);
+  res.status(201).json(note);
+});
+
+app.patch("/api/notes/:id", (req, res) => {
   const { id } = req.params;
-  const existing = db.prepare("SELECT id FROM tasks WHERE id = ?").get(id);
-  if (!existing) return res.status(404).json({ error: "task not found" });
+  const existing = db.prepare("SELECT * FROM notes WHERE id = ?").get(id);
+  if (!existing) return res.status(404).json({ error: "note not found" });
 
-  const done = Boolean(req.body?.done);
-  db.prepare("UPDATE tasks SET done = ? WHERE id = ?").run(done ? 1 : 0, id);
-  res.json({ id: Number(id), done });
+  const title = req.body?.title !== undefined ? String(req.body.title).trim() : existing.title;
+  const body = req.body?.body !== undefined ? String(req.body.body) : existing.body;
+  const tags = req.body?.tags !== undefined ? parseTags(req.body.tags) : existing.tags;
+  if (!title) return res.status(400).json({ error: "title is required" });
+
+  db.prepare(
+    "UPDATE notes SET title = ?, body = ?, tags = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(title, body, tags, id);
+  res.json(db.prepare("SELECT * FROM notes WHERE id = ?").get(id));
 });
 
-app.delete("/api/tasks/completed", (req, res) => {
-  db.prepare("DELETE FROM tasks WHERE done = 1").run();
-  res.status(204).end();
-});
-
-app.delete("/api/tasks/:id", (req, res) => {
-  const { id } = req.params;
-  const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
-  if (result.changes === 0) return res.status(404).json({ error: "task not found" });
+app.delete("/api/notes/:id", (req, res) => {
+  const result = db.prepare("DELETE FROM notes WHERE id = ?").run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: "note not found" });
   res.status(204).end();
 });
 
 app.listen(PORT, () => {
-  console.log(`todo-app listening on http://localhost:${PORT}`);
+  console.log(`notes-app listening on http://localhost:${PORT}`);
 });

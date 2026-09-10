@@ -1,6 +1,6 @@
-# To-Do App
+# Notes App
 
-A simple to-do list app. Add tasks, mark them done, filter by status, and clear completed items. Tasks are stored in a SQLite database on the server, so they're shared by anyone hitting the same server rather than tied to one browser.
+A simple notes/journal app. Create notes with a title, tags, and body text; search across all of them; edits autosave. Notes are stored in a SQLite database on the server.
 
 ## Run it
 
@@ -13,6 +13,6 @@ Then open http://localhost:3000. Requires Node.js 22.5 or newer (uses the built-
 
 ## How it's built
 
-- `server.js` — Express server: serves the frontend and exposes a REST API at `/api/tasks`.
-- `db.js` — opens/creates `tasks.db` (SQLite file, created automatically, not committed to git).
-- `public/` — the frontend (HTML/CSS/JS), talks to the API instead of browser storage.
+- `server.js` — Express server: serves the frontend and exposes a REST API at `/api/notes` (supports `?search=` for filtering by title/body/tags).
+- `db.js` — opens/creates `notes.db` (SQLite file, created automatically, not committed to git).
+- `public/` — the frontend (HTML/CSS/JS): a note list sidebar plus an editor panel that autosaves as you type.

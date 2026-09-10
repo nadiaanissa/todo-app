@@ -1,16 +1,22 @@
-const form = document.getElementById("add-form");
-const input = document.getElementById("task-input");
-const list = document.getElementById("task-list");
+const noteList = document.getElementById("note-list");
 const emptyState = document.getElementById("empty-state");
-const count = document.getElementById("count");
-const clearCompletedBtn = document.getElementById("clear-completed");
-const filterBtns = document.querySelectorAll(".filter-btn");
+const searchInput = document.getElementById("search-input");
+const newNoteBtn = document.getElementById("new-note-btn");
 
-let tasks = [];
-let filter = "all";
+const editorEmpty = document.getElementById("editor-empty");
+const editorForm = document.getElementById("editor-form");
+const titleInput = document.getElementById("title-input");
+const tagsInput = document.getElementById("tags-input");
+const bodyInput = document.getElementById("body-input");
+const savedState = document.getElementById("saved-state");
+const deleteBtn = document.getElementById("delete-btn");
+
+let notes = [];
+let selectedId = null;
+let saveTimer = null;
 
 async function api(path, options) {
-  const res = await fetch(`/api/tasks${path}`, {
+  const res = await fetch(`/api/notes${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
@@ -18,87 +24,104 @@ async function api(path, options) {
   return res.status === 204 ? null : res.json();
 }
 
-async function loadTasks() {
-  tasks = await api("");
-  render();
+function snippet(body) {
+  const oneLine = body.replace(/\s+/g, " ").trim();
+  return oneLine.length > 60 ? oneLine.slice(0, 60) + "…" : oneLine;
 }
 
-function render() {
-  const visible = tasks.filter((task) => {
-    if (filter === "active") return !task.done;
-    if (filter === "completed") return task.done;
-    return true;
-  });
+async function loadNotes(search = "") {
+  const query = search ? `?search=${encodeURIComponent(search)}` : "";
+  notes = await api(query);
+  renderList();
+}
 
-  list.innerHTML = "";
-  visible.forEach((task) => {
+function renderList() {
+  noteList.innerHTML = "";
+  notes.forEach((note) => {
     const li = document.createElement("li");
-    li.className = "task" + (task.done ? " completed" : "");
+    li.className = "note-item" + (note.id === selectedId ? " active" : "");
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = task.done;
-    checkbox.addEventListener("change", () => toggleTask(task.id, checkbox.checked));
+    const title = document.createElement("div");
+    title.className = "note-title";
+    title.textContent = note.title || "Untitled";
 
-    const span = document.createElement("span");
-    span.textContent = task.text;
+    const sub = document.createElement("div");
+    sub.className = "note-snippet";
+    sub.textContent = snippet(note.body);
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "delete-btn";
-    deleteBtn.textContent = "✕";
-    deleteBtn.addEventListener("click", () => deleteTask(task.id));
-
-    li.append(checkbox, span, deleteBtn);
-    list.appendChild(li);
+    li.append(title, sub);
+    li.addEventListener("click", () => selectNote(note.id));
+    noteList.appendChild(li);
   });
 
-  emptyState.hidden = tasks.length > 0;
-  const remaining = tasks.filter((t) => !t.done).length;
-  count.textContent = `${remaining} task${remaining === 1 ? "" : "s"} left`;
+  emptyState.hidden = notes.length > 0;
 }
 
-async function addTask(text) {
-  const task = await api("", { method: "POST", body: JSON.stringify({ text }) });
-  tasks.push(task);
-  render();
+function selectNote(id) {
+  selectedId = id;
+  const note = notes.find((n) => n.id === id);
+  if (!note) return;
+
+  editorEmpty.hidden = true;
+  editorForm.hidden = false;
+  titleInput.value = note.title;
+  tagsInput.value = note.tags;
+  bodyInput.value = note.body;
+  savedState.textContent = "";
+  renderList();
 }
 
-async function toggleTask(id, done) {
-  await api(`/${id}`, { method: "PATCH", body: JSON.stringify({ done }) });
-  const task = tasks.find((t) => t.id === id);
-  if (task) task.done = done;
-  render();
-}
-
-async function deleteTask(id) {
-  await api(`/${id}`, { method: "DELETE" });
-  tasks = tasks.filter((t) => t.id !== id);
-  render();
-}
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = "";
-  input.focus();
-  await addTask(text);
-});
-
-clearCompletedBtn.addEventListener("click", async () => {
-  await api("/completed", { method: "DELETE" });
-  tasks = tasks.filter((t) => !t.done);
-  render();
-});
-
-filterBtns.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    filterBtns.forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    filter = btn.dataset.filter;
-    render();
+async function createNote() {
+  const note = await api("", {
+    method: "POST",
+    body: JSON.stringify({ title: "Untitled", body: "", tags: "" }),
   });
+  notes.unshift(note);
+  selectNote(note.id);
+  titleInput.focus();
+  titleInput.select();
+}
+
+function scheduleSave() {
+  savedState.textContent = "Saving…";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveCurrentNote, 500);
+}
+
+async function saveCurrentNote() {
+  if (selectedId == null) return;
+  const title = titleInput.value.trim() || "Untitled";
+  const updated = await api(`/${selectedId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title, body: bodyInput.value, tags: tagsInput.value }),
+  });
+  const idx = notes.findIndex((n) => n.id === selectedId);
+  if (idx !== -1) notes[idx] = updated;
+  savedState.textContent = "Saved";
+  renderList();
+}
+
+async function deleteCurrentNote() {
+  if (selectedId == null) return;
+  await api(`/${selectedId}`, { method: "DELETE" });
+  notes = notes.filter((n) => n.id !== selectedId);
+  selectedId = null;
+  editorForm.hidden = true;
+  editorEmpty.hidden = false;
+  renderList();
+}
+
+newNoteBtn.addEventListener("click", createNote);
+deleteBtn.addEventListener("click", deleteCurrentNote);
+
+[titleInput, tagsInput, bodyInput].forEach((el) => {
+  el.addEventListener("input", scheduleSave);
 });
 
-loadTasks();
+let searchTimer = null;
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadNotes(searchInput.value.trim()), 250);
+});
+
+loadNotes();

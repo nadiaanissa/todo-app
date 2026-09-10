@@ -3,33 +3,37 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>To-Do App</title>
+<title>Notes</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="app">
-    <h1>To-Do</h1>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Notes</h1>
+        <button id="new-note-btn" type="button" title="New note">+ New</button>
+      </div>
+      <input id="search-input" type="text" placeholder="Search notes..." autocomplete="off" />
+      <ul id="note-list"></ul>
+      <p id="empty-state" class="empty-state" hidden>No notes yet.</p>
+    </aside>
 
-    <form id="add-form" autocomplete="off">
-      <input id="task-input" type="text" placeholder="Add a task..." maxlength="200" required />
-      <button type="submit">Add</button>
-    </form>
+    <main class="editor">
+      <div id="editor-empty" class="editor-empty">
+        <p>Select a note, or create a new one.</p>
+      </div>
 
-    <div class="filters">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="active">Active</button>
-      <button class="filter-btn" data-filter="completed">Completed</button>
-    </div>
-
-    <ul id="task-list"></ul>
-
-    <p id="empty-state" class="empty-state" hidden>No tasks yet. Add one above.</p>
-
-    <div class="footer">
-      <span id="count"></span>
-      <button id="clear-completed" type="button">Clear completed</button>
-    </div>
-  </main>
+      <form id="editor-form" hidden>
+        <input id="title-input" type="text" placeholder="Title" autocomplete="off" required />
+        <input id="tags-input" type="text" placeholder="Tags (comma separated)" autocomplete="off" />
+        <textarea id="body-input" placeholder="Write something..."></textarea>
+        <div class="editor-footer">
+          <span id="saved-state" class="saved-state"></span>
+          <button id="delete-btn" type="button" class="delete-btn">Delete</button>
+        </div>
+      </form>
+    </main>
+  </div>
 
   <script src="app.js"></script>
 </body>
