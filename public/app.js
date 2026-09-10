@@ -1,5 +1,3 @@
-const STORAGE_KEY = "todo-app.tasks";
-
 const form = document.getElementById("add-form");
 const input = document.getElementById("task-input");
 const list = document.getElementById("task-list");
@@ -8,19 +6,21 @@ const count = document.getElementById("count");
 const clearCompletedBtn = document.getElementById("clear-completed");
 const filterBtns = document.querySelectorAll(".filter-btn");
 
-let tasks = loadTasks();
+let tasks = [];
 let filter = "all";
 
-function loadTasks() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
-  } catch {
-    return [];
-  }
+async function api(path, options) {
+  const res = await fetch(`/api/tasks${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`Request failed: ${res.status}`);
+  return res.status === 204 ? null : res.json();
 }
 
-function saveTasks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+async function loadTasks() {
+  tasks = await api("");
+  render();
 }
 
 function render() {
@@ -38,7 +38,7 @@ function render() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = task.done;
-    checkbox.addEventListener("change", () => toggleTask(task.id));
+    checkbox.addEventListener("change", () => toggleTask(task.id, checkbox.checked));
 
     const span = document.createElement("span");
     span.textContent = task.text;
@@ -58,37 +58,37 @@ function render() {
   count.textContent = `${remaining} task${remaining === 1 ? "" : "s"} left`;
 }
 
-function addTask(text) {
-  tasks.push({ id: crypto.randomUUID(), text, done: false });
-  saveTasks();
+async function addTask(text) {
+  const task = await api("", { method: "POST", body: JSON.stringify({ text }) });
+  tasks.push(task);
   render();
 }
 
-function toggleTask(id) {
+async function toggleTask(id, done) {
+  await api(`/${id}`, { method: "PATCH", body: JSON.stringify({ done }) });
   const task = tasks.find((t) => t.id === id);
-  if (task) task.done = !task.done;
-  saveTasks();
+  if (task) task.done = done;
   render();
 }
 
-function deleteTask(id) {
+async function deleteTask(id) {
+  await api(`/${id}`, { method: "DELETE" });
   tasks = tasks.filter((t) => t.id !== id);
-  saveTasks();
   render();
 }
 
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text) return;
-  addTask(text);
   input.value = "";
   input.focus();
+  await addTask(text);
 });
 
-clearCompletedBtn.addEventListener("click", () => {
+clearCompletedBtn.addEventListener("click", async () => {
+  await api("/completed", { method: "DELETE" });
   tasks = tasks.filter((t) => !t.done);
-  saveTasks();
   render();
 });
 
@@ -101,4 +101,4 @@ filterBtns.forEach((btn) => {
   });
 });
 
-render();
+loadTasks();

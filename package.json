@@ -1,0 +1,28 @@
+{
+  "name": "todo-app",
+  "version": "1.0.0",
+  "description": "A simple to-do list app. Add tasks, mark them done, filter by status, and clear completed items. Tasks are saved in your browser's local storage, so nothing leaves your machine.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nadiaanissa/todo-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "bugs": {
+    "url": "https://github.com/nadiaanissa/todo-app/issues"
+  },
+  "homepage": "https://github.com/nadiaanissa/todo-app#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
